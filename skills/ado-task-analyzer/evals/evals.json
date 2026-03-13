@@ -1,0 +1,44 @@
+{
+  "skill_name": "ado-task-analyzer",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "幫我分析 ADO task #1001（InvitationService NullReferenceException，意圖清晰）",
+      "expected_output": "找到 InvitationService 相關代碼，識別 null 問題位置，輸出包含根因說明與執行計畫的 Markdown comment",
+      "files": [],
+      "assertions": [
+        { "text": "output.md 存在且非空" },
+        { "text": "輸出包含執行計畫（出現「執行計畫」、「Plan」或「實作步驟」字樣）" },
+        { "text": "輸出提到 InvitationService 相關的具體檔案路徑或方法名稱" },
+        { "text": "輸出包含根因說明（解釋為什麼會發生 NullReferenceException）" },
+        { "text": "輸出使用 Markdown 格式（包含 ## 標題）" }
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "去 Azure DevOps 抓 task 來分析（描述為「修一下邀請的問題」，意圖不清晰）",
+      "expected_output": "判斷描述不足，輸出引導補充資訊的 comment，包含具體缺少的資訊類型與描述範例",
+      "files": [],
+      "assertions": [
+        { "text": "output.md 存在且非空" },
+        { "text": "輸出為引導補充資訊（不包含執行計畫或代碼位置）" },
+        { "text": "輸出指出具體缺少的資訊類型（如重現步驟、預期行為、影響範圍等）" },
+        { "text": "輸出包含描述範例（示範如何寫好的 Work Item 描述）" },
+        { "text": "輸出不包含代碼檔案路徑或代碼探索結果" }
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "分析 ADO 的工作項目（多租戶 License 日期顯示異常，意圖清晰但問題可能在資料層）",
+      "expected_output": "理解問題意圖，探索 License/Tenant 相關代碼，輸出調查報告說明探索結果與建議下一步",
+      "files": [],
+      "assertions": [
+        { "text": "output.md 存在且非空" },
+        { "text": "輸出為調查報告（而非完整執行計畫）" },
+        { "text": "輸出提到搜尋過的關鍵字或找到的相關檔案" },
+        { "text": "輸出包含建議下一步（至少一個具體可行的行動）" },
+        { "text": "輸出不宣稱已找到確定的根因或提供完整修正步驟" }
+      ]
+    }
+  ]
+}
