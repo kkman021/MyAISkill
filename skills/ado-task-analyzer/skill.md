@@ -234,6 +234,23 @@ curl -s -X POST \
 - The `text` field contains raw Markdown — no HTML conversion needed
 - **JSON escaping**: The `text` value is a JSON string. Use `\n` for newlines within the Markdown content. Escape `"` as `\"`
 
+**ADO Markdown rendering pitfall — HTML-like tags in code blocks:**
+ADO's Markdown renderer does NOT treat fenced code blocks as opaque text. Any content that looks like an HTML tag (e.g. `<el-form>`, `<div>`, `<template>`) inside triple-backtick code blocks will be interpreted as real HTML and **silently stripped**, resulting in empty code blocks in the rendered comment.
+
+**Workaround**: When code snippets contain angle brackets (`<`, `>`), always escape them as HTML entities (`&lt;`, `&gt;`) in the comment text. Also escape `&` as `&amp;` when it appears in attribute values (e.g. `&&` → `&amp;&amp;`). This applies to ALL code blocks in the comment, including inline code and fenced blocks. Example:
+
+```
+Wrong (will be stripped):
+\`\`\`html
+<el-form ref="ruleFormRef">
+\`\`\`
+
+Correct (renders properly):
+\`\`\`
+&lt;el-form ref="ruleFormRef"&gt;
+\`\`\`
+```
+
 Verify success by checking that the response contains `"id":` (a numeric comment ID) and `"format": "markdown"`. If the response contains `"message":`, it indicates an error — log it and continue to the next item.
 
 > **STOP after this step.** Do not implement any code changes. The skill's responsibility ends when the comment is posted.
