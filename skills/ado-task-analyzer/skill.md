@@ -13,29 +13,54 @@ Read these environment variables before starting. If any required one is missing
 
 | Variable | Required | Description |
 |---|---|---|
-| `ADO_PAT` | Yes | Personal Access Token |
-| `ADO_ORG` | Yes | Organization name (e.g. `mycompany`) |
-| `ADO_PROJECT` | Yes | Project name (e.g. `MyProject`) |
-| `ADO_QUERY_ID` | Only if no specific IDs given | Saved query GUID — not needed when user provides Work Item IDs directly |
+| `AzureDevOps_PAT` | Yes | Personal Access Token |
+| `AzureDevOps_ORG` | Yes | Organization name (e.g. `mycompany`) |
+| `AzureDevOps_PROJECT` | Yes | Project name (e.g. `MyProject`) |
+| `AzureDevOps_QUERY_ID` | Only if no specific IDs given | Saved query GUID — not needed when user provides Work Item IDs directly |
 
 Authentication: Base64-encode the string `:<PAT>` and send as `Authorization: Basic <encoded>`.
 
 > **CRITICAL RULE — NO AUTO-IMPLEMENTATION**: After posting the ADO comment (Step 6), this skill's job is complete. Do NOT proceed to implement code changes, create files, or modify anything in the codebase. Implementation is a separate task that requires explicit user instruction.
 
+## Step 0 — Build reusable AUTH header and encoded project name
+
+Before making any API call, run this **once** to set up shell variables for the entire session:
+
+```bash
+ADO_AUTH=$(printf ':%s' "$AzureDevOps_PAT" | base64 -w 0)
+ADO_ORG="$AzureDevOps_ORG"
+ADO_PROJECT_ENCODED=$(printf '%s' "$AzureDevOps_PROJECT" | sed 's/ /%20/g')
+ADO_QUERY_ID="$AzureDevOps_QUERY_ID"
+```
+
+**Key points:**
+- `printf` instead of `echo -n` — portable across bash/zsh/mingw
+- `base64 -w 0` — prevents line-wrapping that breaks the Authorization header (mingw/Linux default wraps at 76 chars)
+- URL-encode `AzureDevOps_PROJECT` — project names may contain spaces (e.g. `OIDC Provider` → `OIDC%20Provider`); a bare space in a URL causes curl exit code 3
+- Short aliases (`ADO_AUTH`, `ADO_ORG`, `ADO_PROJECT_ENCODED`, `ADO_QUERY_ID`) are used in all subsequent commands for readability
+
+All subsequent curl commands must use these short aliases:
+
+```bash
+curl -s -H "Authorization: Basic $ADO_AUTH" "https://dev.azure.com/$ADO_ORG/$ADO_PROJECT_ENCODED/_apis/..."
+```
+
 ## Step 1 — Determine which Work Items to process
 
 If the user provided specific Work Item IDs in their message, use those. Otherwise, fetch all IDs from the configured query:
 
-```
-GET https://dev.azure.com/{org}/{project}/_apis/wit/wiql/{ADO_QUERY_ID}?api-version=7.0
+```bash
+curl -s -H "Authorization: Basic $ADO_AUTH" \
+  "https://dev.azure.com/$ADO_ORG/$ADO_PROJECT_ENCODED/_apis/wit/wiql/$ADO_QUERY_ID?api-version=7.0"
 ```
 
 Response contains `workItems[].id`. Collect all IDs.
 
 Then fetch details for each ID (batch up to 200 at a time):
 
-```
-GET https://dev.azure.com/{org}/{project}/_apis/wit/workitems?ids={ids}&fields=System.Id,System.Title,System.Description,System.WorkItemType,System.State&api-version=7.0
+```bash
+curl -s -H "Authorization: Basic $ADO_AUTH" \
+  "https://dev.azure.com/$ADO_ORG/$ADO_PROJECT_ENCODED/_apis/wit/workitems?ids={ids}&fields=System.Id,System.Title,System.Description,System.WorkItemType,System.State&api-version=7.0"
 ```
 
 For each work item, extract: `id`, `title`, `description`, `workItemType`, `state`.
@@ -185,31 +210,31 @@ Report what you explored honestly. This gives the team context even if the issue
 
 ## Step 6 — Post comment to Azure DevOps
 
-Post a comment to each processed work item. Always write the JSON body to a temp file first to avoid shell escaping issues with complex HTML content:
+Post a comment to each processed work item. Use **Markdown format** via the `format=markdown` query parameter and API version `7.1-preview.4`. Write the comment templates directly in Markdown — the API handles rendering to HTML server-side.
+
+Always write the JSON body to a temp file first to avoid shell escaping issues:
 
 ```bash
 cat > /tmp/ado_comment.json << 'JSONEOF'
 {
-  "text": "<h2>...</h2><p>...</p>"
+  "text": "## Heading\n\n**bold** and `code`\n\n- item 1\n- item 2"
 }
 JSONEOF
 
 curl -s -X POST \
-  -H "Authorization: Basic {base64(:PAT)}" \
+  -H "Authorization: Basic $ADO_AUTH" \
   -H "Content-Type: application/json" \
-  "https://dev.azure.com/{org}/{project}/_apis/wit/workitems/{id}/comments?api-version=7.2-preview.3" \
+  "https://dev.azure.com/$ADO_ORG/$ADO_PROJECT_ENCODED/_apis/wit/workitems/{id}/comments?format=markdown&api-version=7.1-preview.4" \
   -d @/tmp/ado_comment.json
 ```
 
-Verify success by checking that the response contains `"id":` (a numeric comment ID). If the response contains `"message":`, it indicates an error — log it and continue to the next item.
+**Key points:**
+- `format=markdown` is a **query parameter**, NOT a request body field
+- API version must be `7.1-preview.4` or later (earlier versions ignore the format parameter)
+- The `text` field contains raw Markdown — no HTML conversion needed
+- **JSON escaping**: The `text` value is a JSON string. Use `\n` for newlines within the Markdown content. Escape `"` as `\"`
 
-Convert Markdown to HTML before posting. Use these simple mappings:
-- `## Heading` → `<h2>Heading</h2>`
-- `**bold**` → `<strong>bold</strong>`
-- `` `code` `` → `<code>code</code>`
-- ` ```block``` ` → `<pre><code>block</code></pre>`
-- `- item` → `<ul><li>item</li></ul>`
-- Line breaks between paragraphs → `<br>`
+Verify success by checking that the response contains `"id":` (a numeric comment ID) and `"format": "markdown"`. If the response contains `"message":`, it indicates an error — log it and continue to the next item.
 
 > **STOP after this step.** Do not implement any code changes. The skill's responsibility ends when the comment is posted.
 
