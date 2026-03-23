@@ -67,7 +67,55 @@ For each work item, extract: `id`, `title`, `description`, `workItemType`, `stat
 
 > **Note**: Do not include `Microsoft.VSTS.Common.ReproSteps` in the fields list — this field may not exist in all projects and will cause a 400 error. If additional bug-specific fields are needed, query them in a separate request only after confirming the field exists.
 
-## Step 2 — Analyze intent per Work Item
+## Step 2 — Enrich context and analyze intent per Work Item
+
+Before analyzing intent, enrich each work item with related context.
+
+### 2a — Fetch related work items
+
+Call the relations-expand API for each work item:
+
+```bash
+curl -s -H "Authorization: Basic $ADO_AUTH" \
+  "https://dev.azure.com/$ADO_ORG/$ADO_PROJECT_ENCODED/_apis/wit/workitems/{id}?\$expand=relations&api-version=7.0"
+```
+
+From the `relations[]` array, extract items matching these relation types:
+- `System.LinkTypes.Hierarchy-Reverse` → Parent
+- `System.LinkTypes.Hierarchy-Forward` → Child
+- `System.LinkTypes.Related` → Related
+
+Parse the related item IDs from the `url` field of each relation (the numeric ID is the last segment of the URL).
+
+Then batch-fetch details of all related items using the same fields as Step 1:
+
+```bash
+curl -s -H "Authorization: Basic $ADO_AUTH" \
+  "https://dev.azure.com/$ADO_ORG/$ADO_PROJECT_ENCODED/_apis/wit/workitems?ids={ids}&fields=System.Id,System.Title,System.Description,System.WorkItemType,System.State&api-version=7.0"
+```
+
+### 2b — Fetch comments for the original item and all related items
+
+For each item (original + related), fetch its comments:
+
+```bash
+curl -s -H "Authorization: Basic $ADO_AUTH" \
+  "https://dev.azure.com/$ADO_ORG/$ADO_PROJECT_ENCODED/_apis/wit/workitems/{id}/comments?api-version=7.1-preview.4"
+```
+
+Extract `text`, `createdBy.displayName`, and `createdDate` from each comment. Note that comment `text` may contain HTML if previously written via the UI — strip or normalize tags before using for analysis.
+
+### 2c — Use enriched context for intent analysis
+
+Only after the above data is collected, proceed with the intent analysis below. When assessing whether intent is clear, consider:
+- **Parent items**, which often carry the broader business goal or acceptance criteria
+- **Child items**, which reveal how the work has been broken down and what has already been completed
+- **Related items**, which may share the same root cause or provide complementary context
+- **Comment threads** on any of the above, which often contain clarifications, reproduction steps, or decisions that were never written back into the description itself
+
+The enriched context should be stored as a structured summary (relation type, title, state, description, comments) and carried forward into all subsequent steps.
+
+### 2d — Intent analysis
 
 For each work item, decide: **can you understand what the user wants to achieve or what problem they're reporting?**
 
@@ -122,6 +170,10 @@ Post the result as a comment on the work item (see Step 6). Format in Markdown.
 ### 問題重述
 
 {Re-state the problem from the analyst's perspective in 2–4 sentences. This is not a copy-paste of the original description — it is your interpretation: what is broken, under what condition, what the user observes, and what the expected behavior should be. This section helps confirm that the issue was understood correctly.}
+
+### 相關背景
+
+{If parent, child, or related work items provided useful context, briefly summarize it here — e.g., the parent Epic's business objective, a related bug sharing the same root cause, or a child task already completed. If no related items were found or they added no useful context, omit this section entirely.}
 
 ### 問題定位
 
@@ -186,6 +238,10 @@ Report what you explored honestly. This gives the team context even if the issue
 ### 調查摘要
 
 {summarize what you understood from the description}
+
+### 相關背景
+
+{If parent, child, or related work items provided useful context, briefly summarize it here — e.g., the parent Epic's business objective, a related bug sharing the same root cause, or a child task already completed. If no related items were found or they added no useful context, omit this section entirely.}
 
 ### 探索結果
 
@@ -252,6 +308,8 @@ Correct (renders properly):
 ```
 
 Verify success by checking that the response contains `"id":` (a numeric comment ID) and `"format": "markdown"`. If the response contains `"message":`, it indicates an error — log it and continue to the next item.
+
+> **API version note — Comments endpoint**: Both reading comments (`GET .../comments`) and posting comments (`POST .../comments`) use `api-version=7.1-preview.4`. This is consistent across Step 2b (fetching comments for context) and Step 6 (posting analysis results).
 
 > **STOP after this step.** Do not implement any code changes. The skill's responsibility ends when the comment is posted.
 
