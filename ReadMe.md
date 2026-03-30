@@ -119,3 +119,115 @@ Skill 會使用 `AzureDevOps_QUERY_ID` 抓取查詢結果中的所有 work items
 - Skill 僅負責分析與回覆 comment，不會自動修改程式碼
 - 實作變更需另外明確指示
 - PAT 需有足夠權限（Work Items Read & Write）
+
+---
+
+### playwright-cli
+
+透過 `playwright-cli` CLI 工具控制瀏覽器，執行網頁自動化操作，包含導覽、表單填寫、截圖、資料擷取與 E2E 測試。
+
+#### 觸發時機
+
+以下情境會自動觸發此 skill：
+
+- 需要導覽網頁、點擊元素、填寫表單、截圖
+- 執行 E2E 測試或網頁自動化流程
+- 從網頁擷取資料或驗證頁面狀態
+
+#### 安裝 playwright-cli 工具
+
+`playwright-cli` 是獨立的 npm 套件，需先安裝才能使用。
+
+**全域安裝（建議）**
+
+```bash
+npm install -g @playwright/cli
+```
+
+安裝後即可直接執行 `playwright-cli`。
+
+**臨時使用（無需安裝）**
+
+```bash
+npx @playwright/cli open https://example.com
+```
+
+> 舊套件名稱 `playwright-cli` 已棄用，現行套件為 `@playwright/cli`，但執行的二進位檔名稱仍為 `playwright-cli`。
+
+**確認安裝**
+
+```bash
+playwright-cli --version
+```
+
+#### 安裝 Skill
+
+| 平台 | Skill 路徑 |
+|---|---|
+| Claude Code | `~/.claude/skills/playwright-cli/SKILL.md` |
+| GitHub Copilot | `~/.copilot/skills/playwright-cli/SKILL.md` |
+
+#### 主要指令
+
+```bash
+playwright-cli open https://example.com   # 開啟瀏覽器並導覽
+playwright-cli snapshot                   # 取得頁面快照（含元素 ref）
+playwright-cli click e3                   # 點擊元素
+playwright-cli fill e5 "value"            # 填入文字
+playwright-cli screenshot                 # 截圖
+playwright-cli close                      # 關閉瀏覽器
+```
+
+若全域 `playwright-cli` 無法執行，改用 `npx playwright-cli`。
+
+#### 功能涵蓋
+
+- 核心操作：點擊、輸入、拖曳、選擇、上傳、checkbox
+- 鍵盤與滑鼠事件
+- 多 Tab 管理
+- Cookie / LocalStorage / SessionStorage 操作
+- Network request mocking
+- DevTools：console、network log、tracing、video recording
+- 多瀏覽器：Chrome、Firefox、WebKit、Edge
+
+---
+
+### gdpr-cookieyes-audit
+
+模擬首次訪客（無既有 consent 狀態），偵測在使用者點擊同意按鈕前即已執行的第三方追蹤 script、iframe 與網路請求，稽核是否違反 GDPR Prior Consent 規範。
+
+#### 觸發時機
+
+以下情境會自動觸發此 skill：
+
+- 提供 URL 並詢問 cookie 合規或「偷跑」追蹤問題
+- 需要 GDPR 稽核、CookieYes 防護缺口分析
+- 提及 GTM、Hotjar、VWO、YouTube embed 等可能在未獲授權前載入的追蹤工具
+
+#### 安裝 Skill
+
+| 平台 | Skill 路徑 |
+|---|---|
+| Claude Code | `~/.claude/skills/gdpr-cookieyes-audit/SKILL.md` |
+| GitHub Copilot | `~/.copilot/skills/gdpr-cookieyes-audit/SKILL.md` |
+
+#### 稽核流程
+
+1. 以 in-memory profile 開啟瀏覽器（確保無既有 consent cookie）
+2. 攔截所有 network request
+3. 掃描 `<script src>` — 偵測無 `data-cookieyes` 的已知追蹤域
+4. 掃描 `<iframe>` — 偵測有 live `src` 且無 `data-cookieyes` 的嵌入內容
+5. 稽核 GTM consent default 順序 — `consent default` 須在 `gtm.start` 之前
+6. 確認 CookieYes banner 出現（健全性檢查）
+
+#### 違規分類
+
+| 類別 | 說明 |
+|---|---|
+| Cat 1 — Hardcoded script | 外部追蹤 script 無 `data-cookieyes`，頁面載入即執行 |
+| Cat 2 — GTM 無 consent default | GTM 在未設定 consent default 前即啟動 |
+| Cat 3 — Iframe | 含 live `src` 的 embed iframe 無 `data-cookieyes` |
+
+#### 輸出格式
+
+輸出違規表格，分為 **Action A**（需立即修正）與 **Action B**（需法務審查），並列出已通過檢查的項目。
