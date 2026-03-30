@@ -45,6 +45,37 @@ Any domain not in this list but still carrying query params like `uid=`, `cid=`,
 
 Use `playwright-cli` with an **in-memory profile** (no `--persistent`) to guarantee no prior consent cookies exist.
 
+### Step 0 — Verify CookieYes is installed
+
+Before proceeding with the audit, confirm the target site has CookieYes deployed. Navigate to the page, wait for it to load, then inspect cookies:
+
+```bash
+playwright-cli open
+```
+
+```js
+async page => {
+  await page.goto('TARGET_URL', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(2000);
+  const cookies = await page.context().cookies();
+  const cy = cookies.find(c => c.name === 'cookieyes-consent');
+  if (!cy) return 'NOT FOUND — cookieyes-consent cookie is absent';
+  // Validate expected fields exist in the value (consentid is dynamic, skip value check)
+  const required = ['consentid:', 'consent:', 'action:', 'necessary:', 'functional:',
+                    'analytics:', 'performance:', 'advertisement:', 'other:'];
+  const val = decodeURIComponent(cy.value);
+  const missing = required.filter(f => !val.includes(f));
+  if (missing.length > 0) return `INVALID — missing fields: ${missing.join(', ')}\nActual value: ${val}`;
+  return `OK — CookieYes detected\nValue: ${val}`;
+}
+```
+
+**If the cookie is absent**: stop the audit and report that CookieYes is not installed or not functioning on this site. Do not proceed to Steps 1–5.
+
+**If the cookie is present but has missing fields**: proceed with Steps 1–5, but include a warning in the final report listing the missing fields.
+
+**If the cookie is present with all required fields**: proceed with Steps 1–5.
+
 ### Step 1 — Set up request interception before navigating
 
 ```bash
