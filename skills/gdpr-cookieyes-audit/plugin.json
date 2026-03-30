@@ -1,5 +1,0 @@
-{
-  "name": "gdpr-cookieyes-audit",
-  "description": "Audit websites for GDPR Prior Consent violations — detecting third-party tracking scripts, iframes, and network requests that fire before CookieYes consent is given.",
-  "skills": ["./SKILL.md"]
-}
