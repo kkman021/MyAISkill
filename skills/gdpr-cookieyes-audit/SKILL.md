@@ -140,7 +140,7 @@ After navigation, confirm CookieYes banner appeared. If no banner exists, the si
 playwright-cli snapshot
 ```
 
-Look for "Accept", "Reject", "Customize" buttons in the snapshot.
+Look for "Accept", "Reject", "Customize" buttons in the snapshot on the bottom left of the page.
 
 ## Scanning multiple pages
 
