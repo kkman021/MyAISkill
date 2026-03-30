@@ -1,4 +1,5 @@
 {
   "name": "playwright-cli",
-  "description": "Automates browser interactions for web testing, form filling, screenshots, and data extraction."
+  "description": "Automates browser interactions for web testing, form filling, screenshots, and data extraction.",
+  "skills": ["./SKILL.md"]
 }
