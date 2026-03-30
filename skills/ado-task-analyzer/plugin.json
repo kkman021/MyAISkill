@@ -1,10 +1,4 @@
 {
   "name": "ado-task-analyzer",
-  "description": "Fetch work items from Azure DevOps query, analyze intent from descriptions, explore codebase to locate issues, then post execution plans or clarification requests as comments.",
-  "skills": [
-    {
-      "name": "ado-task-analyzer",
-      "source": "./skill.md"
-    }
-  ]
+  "description": "Fetch work items from Azure DevOps query, analyze intent from descriptions, explore codebase to locate issues, then post execution plans or clarification requests as comments."
 }
