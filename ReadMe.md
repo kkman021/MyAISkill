@@ -240,3 +240,84 @@ playwright-cli close                      # 關閉瀏覽器
 #### 輸出格式
 
 輸出違規表格，分為 **Action A**（需立即修正）與 **Action B**（需法務審查），並列出已通過檢查的項目。
+
+---
+
+### temp-email
+
+透過 TempMail API 管理臨時/一次性 email 信箱，適用於 E2E 測試工作流程——註冊驗證、邀請接受、密碼重設流程等需要拋棄式 email 的情境。
+
+#### 觸發時機
+
+以下情境會自動觸發此 skill：
+
+- 需要建立臨時信箱、取得測試用 email 地址
+- 查收驗證信、讀取 email 內容、擷取驗證連結或驗證碼
+- 口語如「建立臨時信箱」、「temp mail」、「收驗證信」、「建一個測試信箱」
+- E2E 測試流程中需要 disposable email
+
+也可直接使用 slash command：`/temp-email`
+
+#### 申請 API 金鑰
+
+1. 前往 [https://rapidapi.com/Privatix/api/temp-mail](https://rapidapi.com/Privatix/api/temp-mail)
+2. 登入或註冊 RapidAPI 帳號
+3. 訂閱該 API（提供免費方案）
+4. 進入 **Endpoints** 頁面，點選任一端點後在右側 **Header Parameters** 欄位可找到：
+   - `X-RapidAPI-Key` — 即 `TempMail_RapidApiKey` 的值
+5. `TempMail_Jwt` 為呼叫 API 回傳的 Bearer token，首次呼叫建立信箱時由 API 核發
+
+#### 環境變數
+
+| 變數 | 必要 | 說明 |
+|---|---|---|
+| `TempMail_Jwt` | 是 | API Bearer token（由 API 核發） |
+| `TempMail_RapidApiKey` | 是 | RapidAPI 訂閱金鑰（來自 RapidAPI 後台） |
+
+#### 環境變數設定
+
+<details>
+<summary><strong>Claude Code</strong></summary>
+
+在 `~/.claude/settings.json` 中設定：
+
+```json
+{
+  "env": {
+    "TempMail_Jwt": "your-jwt-token",
+    "TempMail_RapidApiKey": "your-rapidapi-key"
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><strong>GitHub Copilot</strong></summary>
+
+Copilot 無 settings.json 可設定環境變數，需透過系統環境變數提供。
+
+**Windows** — 透過 PowerShell：
+
+```powershell
+[System.Environment]::SetEnvironmentVariable('TempMail_Jwt', 'your-jwt-token', 'User')
+[System.Environment]::SetEnvironmentVariable('TempMail_RapidApiKey', 'your-rapidapi-key', 'User')
+```
+
+設定後需重啟 VS Code 使環境變數生效。
+
+</details>
+
+#### 功能涵蓋
+
+- 建立臨時信箱（可自訂 local part 與存活時間）
+- 列出收件匣中的所有郵件
+- 讀取完整郵件內容（純文字 / HTML）
+- 擷取驗證連結或數字驗證碼
+- E2E 測試：輪詢等待驗證信到達（15 秒間隔，最多重試 3 次）
+
+#### 注意事項
+
+- 建立的信箱記錄會寫入當前工作目錄的 `temp-mails.md`
+- 預設信箱存活時間為 300 秒
+- 使用 RapidAPI 上的 [Temp Mail](https://rapidapi.com/Privatix/api/temp-mail) 服務
